@@ -17,4 +17,4 @@ jobs:
           date
       - name: List files in the repository
         run: |
-          ls -la
+          ls -l
