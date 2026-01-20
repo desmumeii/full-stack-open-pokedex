@@ -11,4 +11,13 @@ describe('Pokedex', () => {
       )
     ).toBeVisible()
   })
+
+  test('navigate to ivysaur page and check ability', async ({ page }) => {
+    await page.goto('http://localhost:5000')  // main page
+    // Click on ivysaur link
+    await page.getByText('ivysaur').click()
+
+    // Wait for page to load and check that ability is visible
+    await expect(page.getByText('chlorophyll')).toBeVisible()
+  })
 })
