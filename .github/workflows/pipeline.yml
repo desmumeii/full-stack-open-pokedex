@@ -2,14 +2,19 @@ name: Deployment pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
     branches: [main]
     types: [opened, synchronize]
+
 jobs:
   simple_deployment_pipeline:
     runs-on: ubuntu-latest
+
+    outputs:
+      can_deploy: ${{ steps.deploy.outcome == 'success' }}
+      skip: ${{ steps.skip.outputs.skip }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -35,19 +40,38 @@ jobs:
       - name: Run end-to-end tests
         run: npm run test:e2e
 
-      - name: Trigger deployment
+      - name: Check skip flag
+        id: skip
         if: ${{ github.event_name == 'push' }}
-        run: curl https://api.render.com/deploy/srv-${{ secrets.RENDER_SERVICE_ID }}?key=${{ secrets.RENDER_API_KEY }}
-  
+        run: |
+          COMMITS=$(jq -r '.commits[].message' "$GITHUB_EVENT_PATH" || true)
+
+          if echo "$COMMITS" | grep -q '#skip'; then
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger deployment
+        id: deploy
+        if: ${{ github.event_name == 'push' && steps.skip.outputs.skip == 'false' }}
+        run: |
+          curl https://api.render.com/deploy/srv-${{ secrets.RENDER_SERVICE_ID }}?key=${{ secrets.RENDER_API_KEY }}
+
   tag_release:
-    needs: [simple_deployment_pipeline]
+    needs: simple_deployment_pipeline
     runs-on: ubuntu-latest
+
+    if: >
+      ${{
+        github.event_name == 'push' &&
+        needs.simple_deployment_pipeline.outputs.skip == 'false' &&
+        needs.simple_deployment_pipeline.outputs.can_deploy == 'true'}}
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Bump version and push tag
-        if: ${{ github.event_name == 'push' }}
         uses: anothrNick/github-tag-action@1.75.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
