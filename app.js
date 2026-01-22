@@ -4,7 +4,8 @@ const app = express()
 app.get('/health', (req, res) => {
   res.send('ok')
 })
-
+// eslint-disable-next-line no-console
+console.log('doing nothing')
 // get the port from env variable
 const PORT = process.env.PORT || 5000
 
